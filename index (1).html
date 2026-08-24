@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mis tareas — Universidad</title>
+<meta name="description" content="Lista diaria de tareas universitarias, guardada en tu propio navegador.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📓</text></svg>">
+</head>
+<body>
+<div class="wrap">
+  <div class="binding" id="binding"></div>
+  <div class="card">
+    <header>
+      <h1>Mis tareas</h1>
+      <div class="today"><b id="todayLabel"></b>hoy</div>
+    </header>
+
+    <form class="add" id="addForm">
+      <input type="text" id="taskInput" placeholder="Ej: Leer capítulo 4 de Cálculo" maxlength="140" required autocomplete="off" />
+      <select id="subjectInput">
+        <option value="">Materia…</option>
+      </select>
+      <button type="submit" class="submit">Agregar</button>
+    </form>
+
+    <div id="content" class="loading">Cargando tus tareas…</div>
+
+  </div>
+  <footer class="note">se guarda solo en este navegador — vuelve cuando quieras y sigue donde ibas</footer>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
