@@ -1,0 +1,36 @@
+name: Recordatorio diario de tareas
+
+on:
+  schedule:
+    # 12:00 UTC = 7:00 AM hora Colombia. Cambia este valor si quieres otra hora.
+    - cron: '0 12 * * *'
+  workflow_dispatch: {}   # te permite dispararlo manualmente desde la pestaña "Actions"
+
+jobs:
+  enviar-recordatorio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generar el contenido del correo
+        run: node scripts/generar-correo.js
+        env:
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+
+      - name: Enviar el correo
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "📚 Recordatorio de tareas pendientes"
+          to: ${{ secrets.RECIPIENT_EMAIL }}
+          from: Recordatorio de tareas
+          html_body: file://email-body.html
