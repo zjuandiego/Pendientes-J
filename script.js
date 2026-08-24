@@ -1,41 +1,49 @@
-const SUBJECTS = [
-  {name:'General', color:'#5C6478'},
-  {name:'Cálculo', color:'#3B6EA5'},
-  {name:'Física', color:'#D2603A'},
-  {name:'Programación', color:'#2F6F4E'},
-  {name:'Historia', color:'#7C5CBF'},
-  {name:'Inglés', color:'#B54A65'},
-  {name:'Otra', color:'#4A8FA8'}
-];
-
 const STORAGE_KEY = 'mis-tareas-universidad';
 
-const subjectSelect = document.getElementById('subjectInput');
-SUBJECTS.forEach(s=>{
-  const opt = document.createElement('option');
-  opt.value = s.name;
-  opt.textContent = s.name;
-  subjectSelect.appendChild(opt);
-});
-
-function colorFor(name){
-  const found = SUBJECTS.find(s=>s.name === name);
-  if(found) return found.color;
-  let hash = 0;
-  for(let i=0;i<(name||'').length;i++){ hash = name.charCodeAt(i) + ((hash<<5)-hash); }
-  const palette = ['#D2603A','#3B6EA5','#7C5CBF','#2F6F4E','#B54A65','#4A8FA8'];
-  return palette[Math.abs(hash) % palette.length];
-}
-
 const todayLabel = document.getElementById('todayLabel');
-const dateStr = new Date().toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' });
+const today = new Date();
+today.setHours(0,0,0,0);
+const dateStr = today.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' });
 todayLabel.textContent = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 
-const binding = document.getElementById('binding');
-for(let i=0;i<11;i++){
-  const r = document.createElement('div');
-  r.className='ring';
-  binding.appendChild(r);
+// fecha mínima seleccionable = hoy
+document.getElementById('dateInput').min = toISODate(today);
+
+function toISODate(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function parseISODate(str){
+  // 'YYYY-MM-DD' -> Date local, sin desfase de zona horaria
+  const [y,m,d] = str.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+
+function daysUntil(dueISO){
+  if(!dueISO) return null;
+  const due = parseISODate(dueISO);
+  due.setHours(0,0,0,0);
+  return Math.round((due - today) / 86400000);
+}
+
+function urgencyClass(diff){
+  if(diff === null) return 'u-none';
+  if(diff < 0) return 'u-overdue';
+  if(diff <= 2) return 'u-critical';
+  if(diff <= 5) return 'u-soon';
+  if(diff <= 10) return 'u-upcoming';
+  return 'u-later';
+}
+
+function dueLabel(diff, dueISO){
+  if(diff === null) return 'Sin fecha';
+  if(diff < 0) return `Venció hace ${Math.abs(diff)} día${Math.abs(diff)===1?'':'s'}`;
+  if(diff === 0) return 'Vence hoy';
+  if(diff === 1) return 'Vence mañana';
+  return `En ${diff} días`;
 }
 
 let tasks = [];
@@ -61,11 +69,11 @@ function saveTasks(){
   }
 }
 
-function addTask(text, subject){
-  tasks.unshift({
+function addTask(text, due){
+  tasks.push({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     text,
-    subject: subject || 'General',
+    due: due || null,
     done: false,
     createdAt: Date.now()
   });
@@ -86,9 +94,20 @@ function deleteTask(id){
   render();
 }
 
+function sortByDue(list){
+  return [...list].sort((a,b)=>{
+    if(a.due && b.due) return a.due.localeCompare(b.due);
+    if(a.due && !b.due) return -1;
+    if(!a.due && b.due) return 1;
+    return a.createdAt - b.createdAt;
+  });
+}
+
 function taskRow(t){
+  const diff = daysUntil(t.due);
+  const uClass = urgencyClass(diff);
   const li = document.createElement('li');
-  li.className = 'task' + (t.done ? ' done' : '');
+  li.className = 'task ' + uClass + (t.done ? ' done' : '');
   li.innerHTML = `
     <button class="stamp-btn" aria-label="${t.done ? 'Marcar como pendiente' : 'Marcar como hecha'}" data-id="${t.id}" data-action="toggle">
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -97,7 +116,7 @@ function taskRow(t){
     </button>
     <div class="task-body">
       <div class="task-text">${escapeHtml(t.text)}</div>
-      <div class="subject-tag"><span class="dot" style="background:${colorFor(t.subject)}"></span>${escapeHtml(t.subject)}</div>
+      <span class="due-badge ${uClass}">${dueLabel(diff, t.due)}</span>
     </div>
     <button class="del-btn" aria-label="Eliminar tarea" data-id="${t.id}" data-action="delete">✕</button>
   `;
@@ -115,8 +134,8 @@ function render(){
   content.className = '';
   content.innerHTML = '';
 
-  const pending = tasks.filter(t=>!t.done);
-  const completed = tasks.filter(t=>t.done);
+  const pending = sortByDue(tasks.filter(t=>!t.done));
+  const completed = sortByDue(tasks.filter(t=>t.done));
 
   if(tasks.length === 0){
     content.innerHTML = `<div class="empty"><div class="big">Página en blanco.</div>Agrega tu primera tarea de hoy arriba.</div>`;
@@ -131,7 +150,7 @@ function render(){
   if(pending.length === 0){
     const done = document.createElement('div');
     done.className = 'empty';
-    done.style.padding = '14px 10px';
+    done.style.padding = '20px 10px';
     done.innerHTML = `<div class="big">Todo listo por hoy 🎉</div>`;
     content.appendChild(done);
   } else {
@@ -144,7 +163,7 @@ function render(){
   if(completed.length > 0){
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'toggle-completed';
-    toggleBtn.style.marginTop = '16px';
+    toggleBtn.style.marginTop = '10px';
     toggleBtn.textContent = showCompleted ? `Ocultar completadas (${completed.length})` : `Ver completadas (${completed.length})`;
     toggleBtn.onclick = () => { showCompleted = !showCompleted; render(); };
     content.appendChild(toggleBtn);
@@ -152,7 +171,7 @@ function render(){
     if(showCompleted){
       const ul2 = document.createElement('ul');
       ul2.className = 'tasks';
-      ul2.style.marginTop = '6px';
+      ul2.style.marginTop = '8px';
       completed.forEach(t => ul2.appendChild(taskRow(t)));
       content.appendChild(ul2);
     }
@@ -172,10 +191,12 @@ function onListClick(e){
 document.getElementById('addForm').addEventListener('submit', (e)=>{
   e.preventDefault();
   const input = document.getElementById('taskInput');
+  const dateInput = document.getElementById('dateInput');
   const text = input.value.trim();
   if(!text) return;
-  addTask(text, subjectSelect.value);
+  addTask(text, dateInput.value || null);
   input.value = '';
+  dateInput.value = '';
   input.focus();
 });
 
